@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+
+    <title>Отслеживание замены линз</title>
+
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            font-family: sans-serif;
+            background: #ffffff;
+            color: #333333;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        .app-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 100vh;
+            background: #e6f2fa; /* Светло-голубой фон */
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        h1, h2, h3, h4, h5 {
+            margin: 10px 0;
+            text-align: center;
+            font-weight: 400;
+            color: #1a5799;
+        }
+
+        h1 {
+            font-size: 22px;
+            margin-top: 20px;
+        }
+
+        .btn {
+            display: inline-block;
+            text-align: center;
+            padding: 14px 20px;
+            margin: 10px 0;
+            cursor: pointer;
+            border-radius: 8px;
+            border: none;
+            background: #1a93ff;
+            color: #fff;
+            font-size: 16px;
+            font-weight: 500;
+        }
+
+        .btn:active {
+            background: #1474c9;
+        }
+
+        .btn-secondary {
+            background: #ffffff;
+            color: #1a93ff;
+            border: 2px solid #1a93ff;
+        }
+
+        .screen {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .screen.active {
+            display: flex;
+        }
+
+        .choice-container {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            align-items: center;
+        }
+        .choice-container .btn {
+            width: 80%;
+            max-width: 300px;
+        }
+
+        .input-field {
+            margin: 10px 0;
+            width: 80%;
+            max-width: 300px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+
+        .error {
+            color: #e00000;
+            font-size: 14px;
+            margin: 5px 0;
+            text-align: center;
+        }
+
+        .calendar-container {
+            margin: 10px 0;
+            background: #fff;
+            border-radius: 8px;
+            padding: 10px;
+            box-sizing: border-box;
+            width: 90%;
+            max-width: 350px;
+        }
+
+        .calendar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .calendar-header button {
+            background: none;
+            border: none;
+            color: #1a5799;
+            font-size: 20px;
+            cursor: pointer;
+        }
+
+        .calendar-days {
+            display: flex;
+            flex-wrap: wrap;
+            margin-top: 10px;
+        }
+
+        .calendar-day {
+            width: 14.2857%;
+            text-align: center;
+            padding: 8px 0;
+            font-size: 14px;
+            cursor: pointer;
+            border-radius: 4px;
+            margin-bottom: 5px;
+        }
+
+        .calendar-day.today {
+            background: #1a93ff;
+            color: #fff;
+        }
+
+        .calendar-day:hover {
+            background: #1a93ff;
+            color: #fff;
+        }
+
+        .calendar-day.disabled {
+            opacity: 0.4;
+            pointer-events: none;
+        }
+
+        .status-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            width: 200px;
+            height: 200px;
+            margin-top: 40px;
+        }
+
+        .status-number {
+            font-size: 48px;
+            color: #1a5799;
+            font-weight: 600;
+            position: absolute;
+            z-index: 2;
+            cursor: pointer;
+        }
+
+        .progress-svg {
+            position: relative;
+            width: 200px;
+            height: 200px;
+            transform: rotate(-90deg); 
+        }
+
+        .progress-svg circle {
+            fill: none;
+            stroke: #e6f2fa;
+            stroke-width: 12;
+        }
+
+        .progress-svg circle.progress {
+            stroke: #1a93ff;
+            stroke-linecap: round;
+        }
+
+        .change-lens-container {
+            margin-top: 40px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .confirm-container {
+            display: flex;
+            flex-direction: row;
+            gap: 10px;
+            align-items: center;
+            justify-content: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Экран 1: Нет активного статуса -->
+        <div class="screen" id="screen-start">
+            <h1>Смена линз</h1>
+            <button class="btn" id="btn-start">Надел линзы</button>
+        </div>
+
+        <!-- Экран 2: Выбор срока ношения линз -->
+        <div class="screen" id="screen-duration">
+            <h1>На какой срок линзы?</h1>
+            <div class="choice-container">
+                <button class="btn duration-btn" data-value="1">1 день</button>
+                <button class="btn duration-btn" data-value="7">Неделя</button>
+                <button class="btn duration-btn" data-value="14">2 недели</button>
+                <button class="btn duration-btn" data-value="other">Другой</button>
+            </div>
+            <input type="number" class="input-field" id="input-other" placeholder="Количество дней" style="display:none;"/>
+            <div class="error" id="error-other" style="display:none;">Введите срок в днях</div>
+            <button class="btn" id="btn-duration-next" style="display:none;">Далее</button>
+        </div>
+
+        <!-- Экран 3: Когда надел линзы? -->
+        <div class="screen" id="screen-start-date">
+            <h1>Когда вы надели линзы?</h1>
+            <button class="btn" id="btn-start-now">Сейчас</button>
+            <h2>Или выберите день:</h2>
+            <div class="calendar-container">
+                <div class="calendar-header">
+                    <button id="btn-prev-month">&lt;</button>
+                    <span id="calendar-month"></span>
+                    <button id="btn-next-month">&gt;</button>
+                </div>
+                <div class="calendar-days" id="calendar-days"></div>
+            </div>
+            <div class="error" id="error-date" style="display:none;"></div>
+        </div>
+
+        <!-- Экран 4: Статус линз -->
+        <div class="screen" id="screen-status">
+            <h1>Статус линз</h1>
+            <div class="status-container">
+                <div class="status-number" id="days-left"></div>
+                <svg class="progress-svg" viewBox="0 0 200 200">
+                    <circle class="background" cx="100" cy="100" r="90"></circle>
+                    <circle class="progress" cx="100" cy="100" r="90" stroke-dasharray="565" stroke-dashoffset="0" stroke-width="12"></circle>
+                </svg>
+            </div>
+            <div class="change-lens-container">
+                <button class="btn" id="btn-change-lens">Поменял линзы</button>
+                <div class="confirm-container" id="confirm-change" style="display:none;">
+                    <span>Точно?</span>
+                    <button class="btn btn-secondary" id="btn-change-yes">Да</button>
+                    <button class="btn btn-secondary" id="btn-change-no">Нет</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Инициализация Telegram WebApp
+        let tg = null;
+        if (window.Telegram && window.Telegram.WebApp) {
+            tg = window.Telegram.WebApp;
+            tg.ready();
+        }
+
+        let savedData = JSON.parse(localStorage.getItem('lensData')) || {};
+        let totalDays = savedData.totalDays || 0; 
+        let startDate = savedData.startDate ? new Date(savedData.startDate) : null; 
+        let currentScreen = 'screen-start';
+        let calendarYear = (new Date()).getFullYear();
+        let calendarMonth = (new Date()).getMonth();
+
+        const screenStart = document.getElementById('screen-start');
+        const screenDuration = document.getElementById('screen-duration');
+        const screenStartDate = document.getElementById('screen-start-date');
+        const screenStatus = document.getElementById('screen-status');
+
+        const btnStart = document.getElementById('btn-start');
+        const durationButtons = document.querySelectorAll('.duration-btn');
+        const inputOther = document.getElementById('input-other');
+        const errorOther = document.getElementById('error-other');
+        const btnDurationNext = document.getElementById('btn-duration-next');
+
+        const btnStartNow = document.getElementById('btn-start-now');
+        const errorDate = document.getElementById('error-date');
+
+        const calendarMonthLabel = document.getElementById('calendar-month');
+        const calendarDays = document.getElementById('calendar-days');
+        const btnPrevMonth = document.getElementById('btn-prev-month');
+        const btnNextMonth = document.getElementById('btn-next-month');
+
+        const daysLeftEl = document.getElementById('days-left');
+        const progressCircle = document.querySelector('.progress-svg .progress');
+
+        const btnChangeLens = document.getElementById('btn-change-lens');
+        const confirmChange = document.getElementById('confirm-change');
+        const btnChangeYes = document.getElementById('btn-change-yes');
+        const btnChangeNo = document.getElementById('btn-change-no');
+
+        let showMinutes = false; // Отображать ли минуты вместо дней
+
+        function showScreen(id) {
+            document.getElementById(currentScreen).classList.remove('active');
+            document.getElementById(id).classList.add('active');
+            currentScreen = id;
+        }
+
+        // Если уже есть данные - показываем статус
+        if (totalDays > 0 && startDate) {
+            showScreen('screen-status');
+            startAutoUpdate();
+            updateStatus();
+        } else {
+            showScreen('screen-start');
+        }
+
+        function saveData() {
+            localStorage.setItem('lensData', JSON.stringify({
+                totalDays: totalDays,
+                startDate: startDate ? startDate.toISOString() : null
+            }));
+        }
+
+        btnStart.addEventListener('click', () => {
+            showScreen('screen-duration');
+        });
+
+        let chosenDuration = null;
+        durationButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const val = btn.dataset.value;
+                if (val === 'other') {
+                    inputOther.style.display = 'block';
+                    btnDurationNext.style.display = 'block';
+                    chosenDuration = null;
+                } else {
+                    chosenDuration = parseInt(val,10);
+                    inputOther.style.display = 'none';
+                    btnDurationNext.style.display = 'none';
+                    errorOther.style.display = 'none';
+                    goNextAfterDuration();
+                }
+            });
+        });
+
+        btnDurationNext.addEventListener('click', () => {
+            const val = parseInt(inputOther.value,10);
+            if (!val || val <= 0) {
+                errorOther.style.display = 'block';
+            } else {
+                errorOther.style.display = 'none';
+                chosenDuration = val;
+                goNextAfterDuration();
+            }
+        });
+
+        function goNextAfterDuration() {
+            totalDays = chosenDuration;
+            saveData();
+            showScreen('screen-start-date');
+            loadCalendar(calendarYear, calendarMonth);
+        }
+
+        btnStartNow.addEventListener('click', () => {
+            startDate = new Date();
+            saveData();
+            showStatusScreen();
+        });
+
+        btnPrevMonth.addEventListener('click', () => {
+            calendarMonth--;
+            if (calendarMonth < 0) {
+                calendarMonth = 11;
+                calendarYear--;
+            }
+            loadCalendar(calendarYear, calendarMonth);
+        });
+
+        btnNextMonth.addEventListener('click', () => {
+            calendarMonth++;
+            if (calendarMonth > 11) {
+                calendarMonth = 0;
+                calendarYear++;
+            }
+            loadCalendar(calendarYear, calendarMonth);
+        });
+
+        function loadCalendar(year, month) {
+            calendarDays.innerHTML = '';
+            const firstDay = new Date(year, month, 1).getDay();
+            const daysInMonth = new Date(year, month+1, 0).getDate();
+
+            calendarMonthLabel.innerText = year + ' / ' + (month+1);
+
+            const offset = (firstDay === 0 ? 6 : firstDay-1); 
+            for (let i=0; i<offset; i++) {
+                const emptyDay = document.createElement('div');
+                emptyDay.className = 'calendar-day disabled';
+                calendarDays.appendChild(emptyDay);
+            }
+
+            let today = new Date();
+            for (let d=1; d<=daysInMonth; d++){
+                const dayEl = document.createElement('div');
+                dayEl.className = 'calendar-day';
+                dayEl.innerText = d;
+
+                let currentCheckDate = new Date(year, month, d);
+                if (currentCheckDate.toDateString() === today.toDateString()) {
+                    dayEl.classList.add('today');
+                }
+
+                dayEl.addEventListener('click', () => {
+                    // Проверка валидности
+                    if (currentCheckDate > today) {
+                        showDateError("Неправильная дата! Она в будущем.");
+                        return;
+                    }
+                    const diff = Math.floor((today - currentCheckDate)/(1000*60*60*24));
+                    if (diff >= totalDays) {
+                        showDateError(
+                            "Неправильная дата! Если вы не ошиблись, то Вам нужно было поменять линзы " 
+                            + diff + " дней назад!"
+                        );
+                        return;
+                    }
+
+                    startDate = currentCheckDate;
+                    // Чтобы учитывать время по минутам, назначим текущее время дня:
+                    startDate.setHours(today.getHours(), today.getMinutes(), today.getSeconds(), 0);
+                    saveData();
+                    errorDate.style.display = 'none';
+                    showStatusScreen();
+                });
+
+                calendarDays.appendChild(dayEl);
+            }
+        }
+
+        function showDateError(msg) {
+            errorDate.innerText = msg;
+            errorDate.style.display = 'block';
+        }
+
+        function showStatusScreen() {
+            showScreen('screen-status');
+            startAutoUpdate();
+            updateStatus();
+        }
+
+        function updateStatus() {
+            let now = new Date();
+            let totalMinutes = totalDays * 24 * 60;
+            let diffMinutes = Math.floor((now - startDate)/(1000*60));
+            if (diffMinutes < 0) diffMinutes = 0;
+
+            let minutesLeft = totalMinutes - diffMinutes;
+            if (minutesLeft < 0) minutesLeft = 0;
+
+            let daysLeftFloat = minutesLeft / 1440; // float количество дней
+            let daysText = daysLeftFloat.toFixed(1); // один знак после запятой
+
+            if (showMinutes) {
+                daysLeftEl.innerText = minutesLeft + "м";
+            } else {
+                daysLeftEl.innerText = daysText + " д";
+            }
+
+            const circumference = 565;
+            const ratio = minutesLeft / totalMinutes;
+            const offset = circumference * (1 - ratio);
+            progressCircle.style.strokeDasharray = circumference;
+            progressCircle.style.strokeDashoffset = offset;
+        }
+
+        function startAutoUpdate() {
+            // Обновляем каждую минуту
+            setInterval(updateStatus, 60000);
+        }
+
+        // Переключение между днями и минутами при клике на число
+        daysLeftEl.addEventListener('click', () => {
+            showMinutes = !showMinutes;
+            updateStatus();
+        });
+
+        btnChangeLens.addEventListener('click', () => {
+            btnChangeLens.style.display = 'none';
+            confirmChange.style.display = 'flex';
+        });
+
+        btnChangeYes.addEventListener('click', () => {
+            // Сбрасываем все
+            totalDays = 0;
+            startDate = null;
+            saveData();
+            confirmChange.style.display = 'none';
+            btnChangeLens.style.display = 'block';
+            showScreen('screen-start');
+        });
+
+        btnChangeNo.addEventListener('click', () => {
+            confirmChange.style.display = 'none';
+            btnChangeLens.style.display = 'block';
+        });
+
+        if (tg) {
+            tg.MainButton.hide();
+        }
+    </script>
+</body>
+</html>
