@@ -7,6 +7,10 @@
     <title>Отслеживание замены линз</title>
 
     <style>
+        :root {
+            --logo-size: 40px; /* Здесь можно менять размер логотипа */
+        }
+
         body, html {
             margin: 0;
             padding: 0;
@@ -28,6 +32,23 @@
             background: #e6f2fa; /* Светло-голубой фон */
             padding: 20px;
             box-sizing: border-box;
+            position: relative;
+        }
+
+        /* Лого в правом верхнем углу */
+        .logo-container {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: var(--logo-size);
+            height: var(--logo-size);
+        }
+
+        .logo-container img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            cursor: pointer;
         }
 
         h1, h2, h3, h4, h5 {
@@ -214,26 +235,32 @@
             justify-content: center;
         }
 
-        /* Логотип */
-        .logo {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            width: 200px;
-            height: 200px;
-            cursor: pointer;
+        /* Экран с "я тебя люблю" */
+        #screen-love {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            max-width: 400px;
         }
 
-        /* Скрытый экран */
-        #screen-secret {
-            text-align: center;
+        #screen-love.active {
+            display: flex;
+        }
+
+        #screen-love h1 {
+            font-size: 24px;
+            margin-top: 0;
         }
     </style>
 </head>
 <body>
-    <img src="logo.png" alt="Logo" class="logo" id="logo">
-
     <div class="app-container">
+        <!-- Лого в правом верхнем углу -->
+        <div class="logo-container">
+            <img src="logo.png" alt="Logo" id="logo-img" />
+        </div>
+
         <!-- Экран 1: Нет активного статуса -->
         <div class="screen" id="screen-start">
             <h1>Смена линз</h1>
@@ -290,11 +317,20 @@
             </div>
         </div>
 
-        <!-- Экран 5: Секретный экран -->
-        <div class="screen" id="screen-secret">
-            <h1>Секретный экран</h1>
-            <p>Здесь будет ваш текст...</p>
-            <button class="btn" id="btn-secret-back">Назад</button>
+        <!-- Экран "я тебя люблю" -->
+        <div class="screen" id="screen-love">
+            <h1>
+                это только начало.<br>
+                <br>
+                в этот подарок входят предложения:<br>
+                <br>
+                - достижения (5 линз сменил - богач, 10 - миллионер, 100 - миллиардер и подобное.)<br>
+                <br>
+                - плеер который включает ИИ расслабляющую песню пока линзы надеваешь<br>
+                <br>
+                - поиск ближайшей точки где можно взять линзы если срочно
+            </h1>
+            <button class="btn" id="btn-love-back">Назад</button>
         </div>
     </div>
 
@@ -310,7 +346,6 @@
         let totalDays = savedData.totalDays || 0; 
         let startDate = savedData.startDate ? new Date(savedData.startDate) : null; 
         let currentScreen = 'screen-start';
-        let previousScreen = null; // Для возврата с секретного экрана
         let calendarYear = (new Date()).getFullYear();
         let calendarMonth = (new Date()).getMonth();
 
@@ -318,7 +353,7 @@
         const screenDuration = document.getElementById('screen-duration');
         const screenStartDate = document.getElementById('screen-start-date');
         const screenStatus = document.getElementById('screen-status');
-        const screenSecret = document.getElementById('screen-secret');
+        const screenLove = document.getElementById('screen-love');
 
         const btnStart = document.getElementById('btn-start');
         const durationButtons = document.querySelectorAll('.duration-btn');
@@ -342,20 +377,13 @@
         const btnChangeYes = document.getElementById('btn-change-yes');
         const btnChangeNo = document.getElementById('btn-change-no');
 
-        const btnSecretBack = document.getElementById('btn-secret-back');
+        const logoImg = document.getElementById('logo-img');
+        const btnLoveBack = document.getElementById('btn-love-back');
 
-        let showMinutes = false; 
-        let updateInterval = null;
-
-        const logo = document.getElementById('logo');
-        let longPressTimer = null;
-        const LONG_PRESS_DURATION = 5000; // 5 секунд
-        let pressStartTime = 0;
+        let showMinutes = false; // Отображать ли минуты вместо дней
 
         function showScreen(id) {
-            if (currentScreen) {
-                document.getElementById(currentScreen).classList.remove('active');
-            }
+            document.getElementById(currentScreen).classList.remove('active');
             document.getElementById(id).classList.add('active');
             currentScreen = id;
         }
@@ -466,6 +494,7 @@
                 }
 
                 dayEl.addEventListener('click', () => {
+                    // Проверка валидности
                     if (currentCheckDate > today) {
                         showDateError("Неправильная дата! Она в будущем.");
                         return;
@@ -480,6 +509,7 @@
                     }
 
                     startDate = currentCheckDate;
+                    // Чтобы учитывать время по минутам, назначим текущее время дня:
                     startDate.setHours(today.getHours(), today.getMinutes(), today.getSeconds(), 0);
                     saveData();
                     errorDate.style.display = 'none';
@@ -510,8 +540,8 @@
             let minutesLeft = totalMinutes - diffMinutes;
             if (minutesLeft < 0) minutesLeft = 0;
 
-            let daysLeftFloat = minutesLeft / 1440;
-            let daysText = daysLeftFloat.toFixed(1);
+            let daysLeftFloat = minutesLeft / 1440; // float количество дней
+            let daysText = daysLeftFloat.toFixed(1); // один знак после запятой
 
             if (showMinutes) {
                 daysLeftEl.innerText = minutesLeft + "м";
@@ -520,15 +550,15 @@
             }
 
             const circumference = 565;
-            const ratio = minutesLeft / totalMinutes;
+            const ratio = (totalMinutes === 0) ? 0 : minutesLeft / totalMinutes;
             const offset = circumference * (1 - ratio);
             progressCircle.style.strokeDasharray = circumference;
             progressCircle.style.strokeDashoffset = offset;
         }
 
         function startAutoUpdate() {
-            if (updateInterval) clearInterval(updateInterval);
-            updateInterval = setInterval(updateStatus, 60000);
+            // Обновляем каждую минуту
+            setInterval(updateStatus, 60000);
         }
 
         // Переключение между днями и минутами при клике на число
@@ -557,38 +587,36 @@
             btnChangeLens.style.display = 'block';
         });
 
-        // Логика долгого нажатия на логотип
-        logo.addEventListener('mousedown', startLongPress);
-        logo.addEventListener('touchstart', startLongPress);
-        logo.addEventListener('mouseup', cancelLongPress);
-        logo.addEventListener('mouseleave', cancelLongPress);
-        logo.addEventListener('touchend', cancelLongPress);
-        logo.addEventListener('touchcancel', cancelLongPress);
-
-        function startLongPress() {
-            pressStartTime = Date.now();
-            longPressTimer = setTimeout(() => {
-                // По истечении 5 секунд показываем секретный экран
-                openSecretScreen();
-            }, LONG_PRESS_DURATION);
-        }
-
-        function cancelLongPress() {
-            clearTimeout(longPressTimer);
-        }
-
-        function openSecretScreen() {
-            previousScreen = currentScreen;
-            showScreen('screen-secret');
-        }
-
-        btnSecretBack.addEventListener('click', () => {
-            if (previousScreen) {
-                showScreen(previousScreen);
-            } else {
-                showScreen('screen-start');
-            }
+        btnLoveBack.addEventListener('click', () => {
+            showScreen('screen-status');
         });
+
+        // Логика долгого нажатия на логотип
+        let pressTimer = null;
+        let pressed = false;
+
+        function startPressTimer() {
+            pressed = true;
+            pressTimer = setTimeout(() => {
+                // Если удерживали 5 сек, показываем экран любви
+                showScreen('screen-love');
+            }, 5000);
+        }
+
+        function stopPressTimer() {
+            pressed = false;
+            clearTimeout(pressTimer);
+        }
+
+        // Для сенсорных устройств
+        logoImg.addEventListener('touchstart', startPressTimer, false);
+        logoImg.addEventListener('touchend', stopPressTimer, false);
+        logoImg.addEventListener('touchcancel', stopPressTimer, false);
+        
+        // Для мыши
+        logoImg.addEventListener('mousedown', startPressTimer, false);
+        logoImg.addEventListener('mouseup', stopPressTimer, false);
+        logoImg.addEventListener('mouseleave', stopPressTimer, false);
 
         if (tg) {
             tg.MainButton.hide();
